@@ -43,10 +43,10 @@ changelog:
       - '^test:'
 dockers:
   - image_templates:
-      - "ghcr.io/nayanjd/cyclotron-user-service:latest"
-      - "ghcr.io/nayanjd/cyclotron-user-service:v{{ .Tag }}"
-      - "ghcr.io/nayanjd/cyclotron-user-service:v{{ .Major }}"
-      - "ghcr.io/nayanjd/cyclotron-user-service:v{{ .Major }}.{{ .Minor }}"
+      - "ghcr.io/nayanjd/cyclotron/cyclotron-user-service:latest"
+      - "ghcr.io/nayanjd/cyclotron/cyclotron-user-service:{{ .Tag }}"
+      - "ghcr.io/nayanjd/cyclotron/cyclotron-user-service:v{{ .Major }}"
+      - "ghcr.io/nayanjd/cyclotron/cyclotron-user-service:v{{ .Major }}.{{ .Minor }}"
     dockerfile: goreleaser.Dockerfile
 
 # The lines beneath this are called `modelines`. See `:help modeline`
