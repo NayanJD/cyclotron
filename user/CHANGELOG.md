@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/NayanJD/cyclotron/compare/v1.0.0...v1.0.1) (2023-08-14)
+
+
+### Bug Fixes
+
+* **semantic-release:** Reenable goreleaser in exec phase. ([807647c](https://github.com/NayanJD/cyclotron/commit/807647c98554913b85a4e343180459769cd94364))
+
 # 1.0.0 (2023-08-14)
 
 
