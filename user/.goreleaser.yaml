@@ -1,5 +1,6 @@
 # This is an example .goreleaser.yml file with some sensible defaults.
 # Make sure to check the documentation at https://goreleaser.com
+project_name: cyclotron-user-service
 before:
   hooks:
     # You may remove this if you don't use go modules.
@@ -40,6 +41,13 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+dockers:
+  - image_templates:
+      - "ghcr.io/nayanjd/cyclotron-user-service:latest"
+      - "ghcr.io/nayanjd/cyclotron-user-service:v{{ .Tag }}"
+      - "ghcr.io/nayanjd/cyclotron-user-service:v{{ .Major }}"
+      - "ghcr.io/nayanjd/cyclotron-user-service:v{{ .Major }}.{{ .Minor }}"
+    dockerfile: goreleaser.Dockerfile
 
 # The lines beneath this are called `modelines`. See `:help modeline`
 # Feel free to remove those if you don't want/use them.
