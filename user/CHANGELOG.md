@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/NayanJD/cyclotron/compare/v1.0.1...v1.0.2) (2023-08-14)
+
+
+### Bug Fixes
+
+* **user-service:goreleaser:** Change docker image name. ([18c224b](https://github.com/NayanJD/cyclotron/commit/18c224b19fa58e8e1d8115e14eb392d83f9690ea))
+
 ## [1.0.1](https://github.com/NayanJD/cyclotron/compare/v1.0.0...v1.0.1) (2023-08-14)
 
 
