@@ -2,18 +2,60 @@ syntax = "proto3";
 
 package pb;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "user/pkg/grpc/pb";
 
 
 //The User service definition.
 service User {
- rpc Login (LoginRequest) returns (LoginReply);
+ rpc Login              (LoginRequest             ) returns (LoginReply             );
+ rpc Register           (RegisterRequest          ) returns (RegisterReply          );
+ rpc GetUserFromToken   (GetUserFromTokenRequest  ) returns (GetUserFromTokenReply  );
+ rpc RefreshAccessToken (RefreshAccessTokenRequest) returns (RefreshAccessTokenReply);
 }
 message LoginRequest {
-  string Username = 1;
-  string Password = 2;
+ string Username = 1;
+ string Password = 2;
 }
 message LoginReply {
-  string At = 1;
-  string Err = 2;
+ string                    AccessToken  = 1;
+ string                    RefreshToken = 2;
+ google.protobuf.Timestamp ValidTill    = 3;
+}
+message RegisterRequest {
+ string                    FirstName = 1;
+ string                    LastName  = 2;
+ string                    Username  = 3;
+ string                    Password  = 4;
+ google.protobuf.Timestamp Dob       = 5;
+}
+message RegisterReply {
+ string                    Id        = 1;
+ string                    FirstName = 2;
+ string                    LastName  = 3;
+ string                    Username  = 4;
+ google.protobuf.Timestamp Dob       = 5;
+ google.protobuf.Timestamp CreatedAt = 6;
+ google.protobuf.Timestamp DeletedAt = 8;
+}
+message GetUserFromTokenRequest {
+ string AccessToken = 1;
+}
+message GetUserFromTokenReply {
+ string                    Id        = 1;
+ string                    FirstName = 2;
+ string                    LastName  = 3;
+ string                    Username  = 4;
+ google.protobuf.Timestamp Dob       = 5;
+ google.protobuf.Timestamp CreatedAt = 6;
+ google.protobuf.Timestamp DeletedAt = 8;
+}
+message RefreshAccessTokenRequest {
+ string RefreshToken = 1;
+}
+message RefreshAccessTokenReply {
+ string                    AccessToken  = 1;
+ string                    RefreshToken = 2;
+ google.protobuf.Timestamp ValidTill    = 3;
 }
