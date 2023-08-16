@@ -2,24 +2,22 @@ package endpoint
 
 import (
 	"context"
+	user "user/pkg/domains/user"
 	service "user/pkg/service"
 
 	endpoint "github.com/go-kit/kit/endpoint"
 )
 
-// LoginRequest collects the request parameters for the Login method.
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
-// LoginResponse collects the response parameters for the Login method.
 type LoginResponse struct {
 	At  string `json:"at"`
 	Err error  `json:"err"`
 }
 
-// MakeLoginEndpoint returns an endpoint that invokes Login on the service.
 func MakeLoginEndpoint(s service.UserService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(LoginRequest)
@@ -31,19 +29,14 @@ func MakeLoginEndpoint(s service.UserService) endpoint.Endpoint {
 	}
 }
 
-// Failed implements Failer.
 func (r LoginResponse) Failed() error {
 	return r.Err
 }
 
-// Failure is an interface that should be implemented by response types.
-// Response encoders can check if responses are Failer, and if so they've
-// failed, and if so encode them using a separate write path based on the error.
 type Failure interface {
 	Failed() error
 }
 
-// Login implements Service. Primarily useful in a client.
 func (e Endpoints) Login(ctx context.Context, username string, password string) (at string, err error) {
 	request := LoginRequest{
 		Password: password,
@@ -54,4 +47,37 @@ func (e Endpoints) Login(ctx context.Context, username string, password string) 
 		return
 	}
 	return response.(LoginResponse).At, response.(LoginResponse).Err
+}
+
+type RegisterRequest struct {
+	User user.User `json:"user"`
+}
+
+type RegisterResponse struct {
+	NewUser user.User `json:"new_user"`
+	Err     error     `json:"err"`
+}
+
+func MakeRegisterEndpoint(s service.UserService) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(RegisterRequest)
+		newUser, err := s.Register(ctx, req.User)
+		return RegisterResponse{
+			Err:     err,
+			NewUser: newUser,
+		}, nil
+	}
+}
+
+func (r RegisterResponse) Failed() error {
+	return r.Err
+}
+
+func (e Endpoints) Register(ctx context.Context, user user.User) (newUser user.User, err error) {
+	request := RegisterRequest{User: user}
+	response, err := e.RegisterEndpoint(ctx, request)
+	if err != nil {
+		return
+	}
+	return response.(RegisterResponse).NewUser, response.(RegisterResponse).Err
 }

@@ -9,10 +9,14 @@ import (
 
 // NewGRPCServer makes a set of endpoints available as a gRPC AddServer
 type grpcServer struct {
-	login grpc.Handler
+	login    grpc.Handler
+	register grpc.Handler
 	pb.UnimplementedUserServer
 }
 
 func NewGRPCServer(endpoints endpoint.Endpoints, options map[string][]grpc.ServerOption) pb.UserServer {
-	return &grpcServer{login: makeLoginHandler(endpoints, options["Login"])}
+	return &grpcServer{
+		login:    makeLoginHandler(endpoints, options["Login"]),
+		register: makeRegisterHandler(endpoints, options["Register"]),
+	}
 }

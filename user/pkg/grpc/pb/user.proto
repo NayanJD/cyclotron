@@ -7,13 +7,16 @@ option go_package = "user/pkg/grpc/pb";
 
 //The User service definition.
 service User {
- rpc Login (LoginRequest) returns (LoginReply);
+ rpc Login    (LoginRequest   ) returns (LoginReply   );
+ rpc Register (RegisterRequest) returns (RegisterReply);
 }
 message LoginRequest {
-  string Username = 1;
-  string Password = 2;
+ string Username = 1;
+ string Password = 2;
 }
 message LoginReply {
-  string At = 1;
-  string Err = 2;
+ string At  = 1;
+ string Err = 2;
 }
+message RegisterRequest {}
+message RegisterReply {}

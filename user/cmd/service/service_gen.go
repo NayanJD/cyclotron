@@ -17,11 +17,14 @@ func createService(endpoints endpoint.Endpoints) (g *group.Group) {
 	return g
 }
 func defaultGRPCOptions(logger log.Logger, tracer opentracinggo.Tracer) map[string][]grpc.ServerOption {
-	options := map[string][]grpc.ServerOption{"Login": {grpc.ServerErrorLogger(logger), grpc.ServerBefore(opentracing.GRPCToContext(tracer, "Login", logger))}}
+	options := map[string][]grpc.ServerOption{
+		"Login":    {grpc.ServerErrorLogger(logger), grpc.ServerBefore(opentracing.GRPCToContext(tracer, "Login", logger))},
+		"Register": {grpc.ServerErrorLogger(logger), grpc.ServerBefore(opentracing.GRPCToContext(tracer, "Register", logger))},
+	}
 	return options
 }
 func addEndpointMiddlewareToAllMethods(mw map[string][]endpoint1.Middleware, m endpoint1.Middleware) {
-	methods := []string{"Login"}
+	methods := []string{"Login", "Register"}
 	for _, v := range methods {
 		mw[v] = append(mw[v], m)
 	}

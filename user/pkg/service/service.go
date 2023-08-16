@@ -1,11 +1,16 @@
 package service
 
-import "context"
+import (
+	"context"
+	"user/pkg/domains/user"
+)
 
 // UserService describes the service.
 type UserService interface {
 	// Add your methods here
 	Login(ctx context.Context, username, password string) (at string, err error)
+
+	Register(ctx context.Context, user user.User) (newUser user.User, err error)
 }
 
 type basicUserService struct{}
@@ -27,4 +32,9 @@ func New(middleware []Middleware) UserService {
 		svc = m(svc)
 	}
 	return svc
+}
+
+func (b *basicUserService) Register(ctx context.Context, user user.User) (newUser user.User, err error) {
+	// TODO implement the business logic of Register
+	return newUser, err
 }
