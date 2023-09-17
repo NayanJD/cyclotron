@@ -8,24 +8,28 @@ import (
 	http1 "net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	endpoint "user/pkg/endpoint"
 	grpc "user/pkg/grpc"
 	pb "user/pkg/grpc/pb"
 	service "user/pkg/service"
+	postgresStore "user/pkg/store/postgres"
 
+	// oczipkin "contrib.go.opencensus.io/exporter/zipkin"
 	endpoint1 "github.com/go-kit/kit/endpoint"
 	log "github.com/go-kit/kit/log"
-	lightsteptracergo "github.com/lightstep/lightstep-tracer-go"
+	"github.com/go-kit/kit/log/level"
 	group "github.com/oklog/oklog/pkg/group"
 	opentracinggo "github.com/opentracing/opentracing-go"
-	zipkingoopentracing "github.com/openzipkin-contrib/zipkin-go-opentracing"
-	zipkingo "github.com/openzipkin/zipkin-go"
-	http "github.com/openzipkin/zipkin-go/reporter/http"
 	promhttp "github.com/prometheus/client_golang/prometheus/promhttp"
 	grpc1 "google.golang.org/grpc"
-	appdash "sourcegraph.com/sourcegraph/appdash"
-	opentracing "sourcegraph.com/sourcegraph/appdash/opentracing"
+
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 var tracer opentracinggo.Tracer
@@ -41,51 +45,73 @@ var thriftAddr = fs.String("thrift-addr", ":8083", "Thrift listen address")
 var thriftProtocol = fs.String("thrift-protocol", "binary", "binary, compact, json, simplejson")
 var thriftBuffer = fs.Int("thrift-buffer", 0, "0 for unbuffered")
 var thriftFramed = fs.Bool("thrift-framed", false, "true to enable framing")
-var zipkinURL = fs.String("zipkin-url", "", "Enable Zipkin tracing via a collector URL e.g. http://localhost:9411/api/v1/spans")
-var lightstepToken = fs.String("lightstep-token", "", "Enable LightStep tracing via a LightStep access token")
-var appdashAddr = fs.String("appdash-addr", "", "Enable Appdash tracing via an Appdash server host:port")
+var otelGrpcUrl = fs.String("otel-grpc-url", "", "Enable opentelemetry tracing via a grpc exporter URL. Default: localhost:4317")
+
+var logLevel = fs.String("log-level", "INFO", "Sets log levels. Valid values are DEBUG, INFO, WARN, ERROR")
+var logFormat = fs.String("log-format", "fmt", "Log format type. Valid values: fmt, json")
+var postgresConnString = fs.String("postgres-conn-url", "", "Enable postgres store and connects to the provided connection string url.")
 
 func Run() {
 	fs.Parse(os.Args[1:])
 
-	// Create a single logger, which we'll use and give to other components.
-	logger = log.NewLogfmtLogger(os.Stderr)
+	switch strings.ToLower(*logFormat) {
+	case "json":
+		logger = log.NewJSONLogger(os.Stderr)
+	default:
+		logger = log.NewLogfmtLogger(os.Stderr)
+
+	}
+
+	switch *logLevel {
+	case "DEBUG":
+		logger = level.NewFilter(logger, level.AllowDebug())
+	case "WARN":
+		logger = level.NewFilter(logger, level.AllowWarn())
+	case "ERROR":
+		logger = level.NewFilter(logger, level.AllowError())
+	default:
+		logger = level.NewFilter(logger, level.AllowInfo())
+	}
+
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
 
 	//  Determine which tracer to use. We'll pass the tracer to all the
 	// components that use it, as a dependency
-	if *zipkinURL != "" {
-		logger.Log("tracer", "Zipkin", "URL", *zipkinURL)
-		reporter := http.NewReporter(*zipkinURL)
-		defer reporter.Close()
-		endpoint, err := zipkingo.NewEndpoint("user", "localhost:80")
-		if err != nil {
-			logger.Log("err", err)
-			os.Exit(1)
-		}
-		localEndpoint := zipkingo.WithLocalEndpoint(endpoint)
-		nativeTracer, err := zipkingo.NewTracer(reporter, localEndpoint)
-		if err != nil {
-			logger.Log("err", err)
-			os.Exit(1)
-		}
-		tracer = zipkingoopentracing.Wrap(nativeTracer)
-	} else if *lightstepToken != "" {
-		logger.Log("tracer", "LightStep")
-		tracer = lightsteptracergo.NewTracer(lightsteptracergo.Options{AccessToken: *lightstepToken})
-		defer lightsteptracergo.Flush(context.Background(), tracer)
-	} else if *appdashAddr != "" {
-		logger.Log("tracer", "Appdash", "addr", *appdashAddr)
-		collector := appdash.NewRemoteCollector(*appdashAddr)
-		tracer = opentracing.NewTracer(collector)
-		defer collector.Close()
-	} else {
-		logger.Log("tracer", "none")
-		tracer = opentracinggo.GlobalTracer()
+	if *otelGrpcUrl != "" {
+		logger.Log("tracer", "OTEL", "GRPC_URL", *otelGrpcUrl)
+
+		tp := initTracerProvider(*otelGrpcUrl)
+		defer func() {
+			if err := tp.Shutdown(context.Background()); err != nil {
+				logger.Log("Tracer Provider Shutdown: %v", err)
+			}
+		}()
 	}
 
-	svc := service.New(getServiceMiddleware(logger))
+	var ps *postgresStore.PostgresStore
+
+	if *postgresConnString != "" {
+		logger.Log("tracer", "PostgresStore", "URL", postgresConnString)
+		var err error
+		ps, err = postgresStore.NewPostgresStore(*postgresConnString, log.With(logger, "store", "postgres"))
+
+		if err != nil {
+			logger.Log("tracer", "PostgresStore", "URL", err)
+			os.Exit(1)
+		}
+	} else {
+		logger.Log("tracer", "Only postgres store supported now. Please enable using --postgres-conn-url")
+		os.Exit(1)
+	}
+
+	svc, err := service.New(ps, ps, log.With(logger, "service", "userService"), getServiceMiddleware(logger))
+
+	if err != nil {
+		logger.Log("tracer", "Failed to start service")
+		os.Exit(1)
+	}
+
 	eps := endpoint.New(svc, getEndpointMiddleware(logger))
 	g := createService(eps)
 	initMetricsEndpoint(g)
@@ -104,7 +130,9 @@ func initGRPCHandler(endpoints endpoint.Endpoints, g *group.Group) {
 	}
 	g.Add(func() error {
 		logger.Log("transport", "gRPC", "addr", *grpcAddr)
-		baseServer := grpc1.NewServer()
+		baseServer := grpc1.NewServer(
+			grpc1.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+		)
 		pb.RegisterUserServer(baseServer, grpcServer)
 		return baseServer.Serve(grpcListener)
 	}, func(error) {
@@ -137,6 +165,26 @@ func initMetricsEndpoint(g *group.Group) {
 		debugListener.Close()
 	})
 }
+
+func initTracerProvider(traceEndpoint string) *sdktrace.TracerProvider {
+	ctx := context.Background()
+
+	if traceEndpoint == "" {
+		traceEndpoint = "localhost:4317"
+	}
+
+	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(traceEndpoint))
+	if err != nil {
+		logger.Log("OTLP Trace gRPC Creation: %v", err)
+	}
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
+	)
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+	return tp
+}
+
 func initCancelInterrupt(g *group.Group) {
 	cancelInterrupt := make(chan struct{})
 	g.Add(func() error {
