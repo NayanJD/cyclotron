@@ -9,7 +9,9 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 	endpoint "user/pkg/endpoint"
 	grpc "user/pkg/grpc"
 	pb "user/pkg/grpc/pb"
@@ -26,9 +28,13 @@ import (
 	grpc1 "google.golang.org/grpc"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -87,6 +93,18 @@ func Run() {
 				logger.Log("Tracer Provider Shutdown: %v", err)
 			}
 		}()
+
+		mp := initMeterProvider()
+		defer func() {
+			if err := mp.Shutdown(context.Background()); err != nil {
+				logger.Log("Error shutting down meter provider: %v", err)
+			}
+		}()
+
+		err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second))
+		if err != nil {
+			logger.Log(err)
+		}
 	}
 
 	var ps *postgresStore.PostgresStore
@@ -183,6 +201,44 @@ func initTracerProvider(traceEndpoint string) *sdktrace.TracerProvider {
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	return tp
+}
+
+func initMeterProvider() *sdkmetric.MeterProvider {
+	ctx := context.Background()
+
+	exporter, err := otlpmetricgrpc.New(ctx)
+	if err != nil {
+		logger.Log("new otlp metric grpc exporter failed: %v", err)
+	}
+
+	mp := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter)),
+		sdkmetric.WithResource(initResource()),
+	)
+	otel.SetMeterProvider(mp)
+	return mp
+}
+
+var (
+	resource          *sdkresource.Resource
+	initResourcesOnce sync.Once
+)
+
+func initResource() *sdkresource.Resource {
+	initResourcesOnce.Do(func() {
+		extraResources, _ := sdkresource.New(
+			context.Background(),
+			sdkresource.WithOS(),
+			sdkresource.WithProcess(),
+			sdkresource.WithContainer(),
+			sdkresource.WithHost(),
+		)
+		resource, _ = sdkresource.Merge(
+			sdkresource.Default(),
+			extraResources,
+		)
+	})
+	return resource
 }
 
 func initCancelInterrupt(g *group.Group) {

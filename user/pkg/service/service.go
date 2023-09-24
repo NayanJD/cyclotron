@@ -16,6 +16,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	jwt "github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	cryptus "user/pkg/cryptus"
 )
 
 const (
@@ -64,39 +65,39 @@ func (b *basicUserService) Login(ctx context.Context, username string, password 
 		return token, InvalidPasswordErr
 	}
 
-	bits := make([]byte, 12)
+	// bits := make([]byte, 12)
 
-	_, err = rand.Read(bits)
-	if err != nil {
-		level.Error(b.logger).Log("token", "accessToken", "msg", err)
-		return token, InternalServerErr
+	expirationTime := time.Now().Add(900 * time.Second)
+
+	// _, err = rand.Read(bits)
+	// if err != nil {
+	// 	level.Error(b.logger).Log("token", "accessToken", "msg", err)
+	// 	return token, InternalServerErr
+	// }
+
+	accessTokenClaims := cryptus.UserJwtClaims{
+		UserId: rUser.ID.String(),
 	}
 
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, JwtClaims{
-		UserId:  rUser.ID.String(),
-		TokenId: base64.StdEncoding.EncodeToString(bits),
-	})
+	// _, err = rand.Read(bits)
+	// if err != nil {
+	// 	level.Error(b.logger).Log("token", "refreshToken", "msg", err)
+	// 	return token, InternalServerErr
+	// }
 
-	_, err = rand.Read(bits)
-	if err != nil {
-		level.Error(b.logger).Log("token", "refreshToken", "msg", err)
-		return token, InternalServerErr
+	refreshTokenClaims := cryptus.UserJwtClaims{
+		UserId: rUser.ID.String(),
 	}
-
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, JwtClaims{
-		UserId:  rUser.ID.String(),
-		TokenId: base64.StdEncoding.EncodeToString(bits),
-	})
 
 	// Sign and get the complete encoded token as a string using the secret
-	accessTokenString, err := accessToken.SignedString([]byte(b.jwtSecret))
+	accessTokenString, err := cryptus.NewJwtToken(accessTokenClaims, b.jwtSecret, expirationTime)
 
 	if err != nil {
 		level.Error(b.logger).Log("token", "accessToken", "msg", err)
 		return token, InternalServerErr
 	}
 
-	refreshTokenString, err := refreshToken.SignedString([]byte(b.jwtSecret))
+	refreshTokenString, err := cryptus.NewJwtToken(refreshTokenClaims, b.jwtSecret, expirationTime)
 
 	if err != nil {
 		level.Error(b.logger).Log("token", "refreshToken", "msg", err)
@@ -114,6 +115,7 @@ func (b *basicUserService) Login(ctx context.Context, username string, password 
 	}
 
 	return *newToken, err
+
 }
 
 // NewBasicUserService returns a naive, stateless implementation of UserService.
@@ -183,7 +185,7 @@ func (b *basicUserService) Register(ctx context.Context, user user.User) (newUse
 
 	var hashedPasswordBytes []byte
 
-	if hashedPasswordBytes, err = bcrypt.GenerateFromPassword([]byte(user.Password), 10); err != nil {
+	if hashedPasswordBytes, err = bcrypt.GenerateFromPassword([]byte(user.Password), 8); err != nil {
 		return newUser, fmt.Errorf("Password could not be hashed!")
 	}
 
