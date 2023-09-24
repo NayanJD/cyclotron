@@ -8,8 +8,11 @@ import (
 	http1 "net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 	endpoint "user/pkg/endpoint"
 	grpc "user/pkg/grpc"
 	pb "user/pkg/grpc/pb"
@@ -26,10 +29,15 @@ import (
 	grpc1 "google.golang.org/grpc"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
 
 var tracer opentracinggo.Tracer
@@ -50,6 +58,19 @@ var otelGrpcUrl = fs.String("otel-grpc-url", "", "Enable opentelemetry tracing v
 var logLevel = fs.String("log-level", "INFO", "Sets log levels. Valid values are DEBUG, INFO, WARN, ERROR")
 var logFormat = fs.String("log-format", "fmt", "Log format type. Valid values: fmt, json")
 var postgresConnString = fs.String("postgres-conn-url", "", "Enable postgres store and connects to the provided connection string url.")
+
+var Commit = func() string {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			fmt.Println(setting.Key)
+			if setting.Key == "vcs.revision" {
+				fmt.Println("Setting", setting.Value)
+				return setting.Value
+			}
+		}
+	}
+	return ""
+}()
 
 func Run() {
 	fs.Parse(os.Args[1:])
@@ -76,6 +97,8 @@ func Run() {
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
 
+	logger.Log("Version", Commit)
+
 	//  Determine which tracer to use. We'll pass the tracer to all the
 	// components that use it, as a dependency
 	if *otelGrpcUrl != "" {
@@ -87,6 +110,18 @@ func Run() {
 				logger.Log("Tracer Provider Shutdown: %v", err)
 			}
 		}()
+
+		mp := initMeterProvider()
+		defer func() {
+			if err := mp.Shutdown(context.Background()); err != nil {
+				logger.Log("Error shutting down meter provider: %v", err)
+			}
+		}()
+
+		err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second))
+		if err != nil {
+			logger.Log(err)
+		}
 	}
 
 	var ps *postgresStore.PostgresStore
@@ -152,7 +187,17 @@ func getEndpointMiddleware(logger log.Logger) (mw map[string][]endpoint1.Middlew
 
 	return
 }
+
+func newResource(serviceName, serviceVersion string) (*sdkresource.Resource, error) {
+	return sdkresource.Merge(sdkresource.Default(),
+		sdkresource.NewWithAttributes(semconv.SchemaURL,
+			semconv.ServiceName(serviceName),
+			semconv.ServiceVersion(serviceVersion),
+		))
+}
+
 func initMetricsEndpoint(g *group.Group) {
+
 	http1.DefaultServeMux.Handle("/metrics", promhttp.Handler())
 	debugListener, err := net.Listen("tcp", *debugAddr)
 	if err != nil {
@@ -167,6 +212,12 @@ func initMetricsEndpoint(g *group.Group) {
 }
 
 func initTracerProvider(traceEndpoint string) *sdktrace.TracerProvider {
+	resource, err := newResource("user", "0.1.0")
+
+	if err != nil {
+		logger.Log("msg", "Failed to create resource")
+	}
+
 	ctx := context.Background()
 
 	if traceEndpoint == "" {
@@ -179,10 +230,49 @@ func initTracerProvider(traceEndpoint string) *sdktrace.TracerProvider {
 	}
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(resource),
 	)
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	return tp
+}
+
+func initMeterProvider() *sdkmetric.MeterProvider {
+	ctx := context.Background()
+
+	exporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithInsecure())
+	if err != nil {
+		logger.Log("new otlp metric grpc exporter failed: %v", err)
+	}
+
+	mp := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter)),
+		sdkmetric.WithResource(initResource()),
+	)
+	otel.SetMeterProvider(mp)
+	return mp
+}
+
+var (
+	resource          *sdkresource.Resource
+	initResourcesOnce sync.Once
+)
+
+func initResource() *sdkresource.Resource {
+	initResourcesOnce.Do(func() {
+		extraResources, _ := sdkresource.New(
+			context.Background(),
+			sdkresource.WithOS(),
+			sdkresource.WithProcess(),
+			sdkresource.WithContainer(),
+			sdkresource.WithHost(),
+		)
+		resource, _ = sdkresource.Merge(
+			sdkresource.Default(),
+			extraResources,
+		)
+	})
+	return resource
 }
 
 func initCancelInterrupt(g *group.Group) {
