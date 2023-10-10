@@ -8,6 +8,7 @@ import (
 	http1 "net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall"
@@ -36,6 +37,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 )
 
 var tracer opentracinggo.Tracer
@@ -56,6 +58,19 @@ var otelGrpcUrl = fs.String("otel-grpc-url", "", "Enable opentelemetry tracing v
 var logLevel = fs.String("log-level", "INFO", "Sets log levels. Valid values are DEBUG, INFO, WARN, ERROR")
 var logFormat = fs.String("log-format", "fmt", "Log format type. Valid values: fmt, json")
 var postgresConnString = fs.String("postgres-conn-url", "", "Enable postgres store and connects to the provided connection string url.")
+
+var Commit = func() string {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			fmt.Println(setting.Key)
+			if setting.Key == "vcs.revision" {
+				fmt.Println("Setting", setting.Value)
+				return setting.Value
+			}
+		}
+	}
+	return ""
+}()
 
 func Run() {
 	fs.Parse(os.Args[1:])
@@ -81,6 +96,8 @@ func Run() {
 
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
+
+	logger.Log("Version", Commit)
 
 	//  Determine which tracer to use. We'll pass the tracer to all the
 	// components that use it, as a dependency
@@ -170,7 +187,17 @@ func getEndpointMiddleware(logger log.Logger) (mw map[string][]endpoint1.Middlew
 
 	return
 }
+
+func newResource(serviceName, serviceVersion string) (*sdkresource.Resource, error) {
+	return sdkresource.Merge(sdkresource.Default(),
+		sdkresource.NewWithAttributes(semconv.SchemaURL,
+			semconv.ServiceName(serviceName),
+			semconv.ServiceVersion(serviceVersion),
+		))
+}
+
 func initMetricsEndpoint(g *group.Group) {
+
 	http1.DefaultServeMux.Handle("/metrics", promhttp.Handler())
 	debugListener, err := net.Listen("tcp", *debugAddr)
 	if err != nil {
@@ -185,6 +212,12 @@ func initMetricsEndpoint(g *group.Group) {
 }
 
 func initTracerProvider(traceEndpoint string) *sdktrace.TracerProvider {
+	resource, err := newResource("user", "0.1.0")
+
+	if err != nil {
+		logger.Log("msg", "Failed to create resource")
+	}
+
 	ctx := context.Background()
 
 	if traceEndpoint == "" {
@@ -197,6 +230,7 @@ func initTracerProvider(traceEndpoint string) *sdktrace.TracerProvider {
 	}
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
+		sdktrace.WithResource(resource),
 	)
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
@@ -206,7 +240,7 @@ func initTracerProvider(traceEndpoint string) *sdktrace.TracerProvider {
 func initMeterProvider() *sdkmetric.MeterProvider {
 	ctx := context.Background()
 
-	exporter, err := otlpmetricgrpc.New(ctx)
+	exporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithInsecure())
 	if err != nil {
 		logger.Log("new otlp metric grpc exporter failed: %v", err)
 	}
