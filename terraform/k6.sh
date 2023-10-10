@@ -3,7 +3,9 @@ sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-
 sudo chmod +x /usr/local/bin/docker-compose
 docker-compose --version
 GITHUB_TOKEN=$(aws secretsmanager get-secret-value --secret-id cyclotron/commons --region ap-south-1 --query SecretString --output text | jq '.GITHUB_TOKEN')
+
 git clone https://${GITHUB_TOKEN}:@github.com/nayanjd/cyclotron
+git checkout feat/benchmarking-infra
 
 sudo mkfs -t ext4 /dev/xvdj
 sudo mkfs -t ext4 /dev/xvdp
