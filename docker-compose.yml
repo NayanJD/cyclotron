@@ -17,6 +17,9 @@ services:
   postgres:
     image: postgres:14
     container_name: postgres
+    command:
+      - "-c"
+      - "max_connections=1000"
     deploy:
       resources:
         limits:
@@ -57,9 +60,9 @@ services:
     restart: unless-stopped
     ports:
       - "${JAEGER_SERVICE_PORT}:${JAEGER_SERVICE_PORT}"         # Jaeger UI
-      - "4317:4317"                           # OTLP gRPC default port
+      # - "4317:4317"                           # OTLP gRPC default port
     environment:
-      # - COLLECTOR_OTLP_ENABLED=true
+      - COLLECTOR_OTLP_ENABLED=true
       - METRICS_STORAGE_TYPE=prometheus
     logging: *logging
 
@@ -79,27 +82,27 @@ services:
     logging: *logging
 
   # OpenTelemetry Collector
-  # otelcol:
-  #   image: otel/opentelemetry-collector-contrib:0.84.0
-  #   container_name: otel-col
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 125M
-  #   restart: unless-stopped
-  #   command: [ "--config=/etc/otelcol-config.yml", "--config=/etc/otelcol-observability.yml", "--config=/etc/otelcol-config-extras.yml" ]
-  #   volumes:
-  #     - ./otelcollector/otelcol-config.yml:/etc/otelcol-config.yml
-  #     - ./otelcollector/otelcol-observability.yml:/etc/otelcol-observability.yml
-  #     - ./otelcollector/otelcol-config-extras.yml:/etc/otelcol-config-extras.yml
-  #   ports:
-  #     - "4317"          # OTLP over gRPC receiver
-  #     - "4318:4318"     # OTLP over HTTP receiver
-  #     - "9464"          # Prometheus exporter
-  #     - "8888"          # metrics endpoint
-  #   depends_on:
-  #     - jaeger
-  #   logging: *logging
+  otelcol:
+    image: otel/opentelemetry-collector-contrib:0.84.0
+    container_name: otel-col
+    deploy:
+      resources:
+        limits:
+          memory: 125M
+    restart: unless-stopped
+    command: [ "--config=/etc/otelcol-config.yml", "--config=/etc/otelcol-observability.yml", "--config=/etc/otelcol-config-extras.yml" ]
+    volumes:
+      - ./otelcollector/otelcol-config.yml:/etc/otelcol-config.yml
+      - ./otelcollector/otelcol-observability.yml:/etc/otelcol-observability.yml
+      - ./otelcollector/otelcol-config-extras.yml:/etc/otelcol-config-extras.yml
+    ports:
+      - "4317:4317"          # OTLP over gRPC receiver
+      - "4318:4318"     # OTLP over HTTP receiver
+      - "9464:9464"          # Prometheus exporter
+      - "8888:8888"          # metrics endpoint
+    depends_on:
+      - jaeger
+    logging: *logging
 
   # Prometheus
   prometheus:
@@ -119,7 +122,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 300M
+          memory: 3G
+          cpus: '3'
     ports:
       - "${PROMETHEUS_SERVICE_PORT}:${PROMETHEUS_SERVICE_PORT}"
     logging: *logging

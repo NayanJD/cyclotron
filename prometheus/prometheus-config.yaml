@@ -15,3 +15,7 @@ scrape_configs:
   static_configs:
   - targets:
     - 'otelcol:8888'
+- job_name: user-service
+  static_configs:
+  - targets:
+    - 'host.docker.internal:8080'
