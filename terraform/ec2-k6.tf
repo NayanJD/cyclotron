@@ -1,4 +1,4 @@
-module "ec2" {
+module "cyclotron-k6-ec2" {
   source = "terraform-aws-modules/ec2-instance/aws"
 
   name = "k6-instance"
@@ -7,7 +7,7 @@ module "ec2" {
 
   subnet_id              = element(module.vpc.private_subnets, 0)
   vpc_security_group_ids = [module.security_group_instance.security_group_id]
-  instance_type          = "t2.micro"
+  instance_type          = "t3a.small"
 
   create_iam_instance_profile = true
   iam_role_description        = "IAM role for EC2 instance"
@@ -15,7 +15,9 @@ module "ec2" {
     AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
   }
   
-  user_data = file("${path.module}/k6.sh") 
+  user_data = file("${path.module}/k6.sh")
+  user_data_replace_on_change = true
+
   tags = local.tags
 }
 
@@ -35,7 +37,7 @@ module "security_group_instance" {
 
 resource "aws_iam_role_policy" "test_policy" {
   name = "test_policy"
-  role = module.ec2.iam_role_name
+  role = module.cyclotron-k6-ec2.iam_role_name
 
   # Terraform's "jsonencode" function converts a
   # Terraform expression result to valid JSON syntax.
@@ -66,11 +68,11 @@ resource "aws_iam_role_policy" "test_policy" {
 resource "aws_volume_attachment" "jaeger-volume-attachment" {
   device_name = "/dev/sdj"
   volume_id   = aws_ebs_volume.jaeger-volume.id
-  instance_id = module.ec2.id
+  instance_id = module.cyclotron-k6-ec2.id
 }
 
 resource "aws_ebs_volume" "jaeger-volume" {
-  availability_zone = module.ec2.availability_zone
+  availability_zone = module.cyclotron-k6-ec2.availability_zone
   size              = 40
 
   tags = local.tags
@@ -79,11 +81,11 @@ resource "aws_ebs_volume" "jaeger-volume" {
 resource "aws_volume_attachment" "prometheus-volume-attachment" {
   device_name = "/dev/sdp"
   volume_id   = aws_ebs_volume.prometheus-volume.id
-  instance_id = module.ec2.id
+  instance_id = module.cyclotron-k6-ec2.id
 }
 
 resource "aws_ebs_volume" "prometheus-volume" {
-  availability_zone = module.ec2.availability_zone
+  availability_zone = module.cyclotron-k6-ec2.availability_zone
   size              = 40
 
   tags = local.tags
