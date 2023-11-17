@@ -20,6 +20,10 @@ func NewPostgresStore(connectionUrl string, logger log.Logger) (*PostgresStore, 
 
 	db, err := otelsqlx.Connect("postgres", connectionUrl, otelsql.WithAttributes(semconv.DBSystemPostgreSQL))
 
+	if err != nil {
+		return nil, err
+	}
+
 	db.DB.SetMaxOpenConns(1000)
 	db.DB.SetMaxIdleConns(10)   // defaultMaxIdleConns = 2
 	db.DB.SetConnMaxLifetime(0) // 0, connections are reused forever.
