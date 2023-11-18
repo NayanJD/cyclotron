@@ -224,6 +224,8 @@ func initTracerProvider(traceEndpoint string) (*sdktrace.TracerProvider, error) 
 
 	ctx := context.Background()
 
+	logger.Log("traceEndpoint: ", traceEndpoint)
+
 	if traceEndpoint == "" {
 		traceEndpoint = "localhost:4317"
 	}
