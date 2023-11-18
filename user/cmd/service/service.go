@@ -224,17 +224,19 @@ func initTracerProvider(traceEndpoint string) (*sdktrace.TracerProvider, error) 
 
 	ctx := context.Background()
 
-	logger.Log("traceEndpoint: ", traceEndpoint)
-
 	if traceEndpoint == "" {
 		traceEndpoint = "localhost:4317"
 	}
 
+	logger.Log("traceEndpoint: ", traceEndpoint)
+
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(traceEndpoint))
+
 	if err != nil {
 		logger.Log("OTLP Trace gRPC Creation: %v", err)
 		return nil, err
 	}
+
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(resource),
