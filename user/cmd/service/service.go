@@ -104,7 +104,11 @@ func Run() {
 	if *otelGrpcUrl != "" {
 		logger.Log("tracer", "OTEL", "GRPC_URL", *otelGrpcUrl)
 
-		tp := initTracerProvider(*otelGrpcUrl)
+		tp, err := initTracerProvider(*otelGrpcUrl)
+
+		if err != nil {
+			logger.Log(err)
+		}
 		defer func() {
 			if err := tp.Shutdown(context.Background()); err != nil {
 				logger.Log("Tracer Provider Shutdown: %v", err)
@@ -118,7 +122,7 @@ func Run() {
 			}
 		}()
 
-		err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second))
+		err = runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second))
 		if err != nil {
 			logger.Log(err)
 		}
@@ -211,7 +215,7 @@ func initMetricsEndpoint(g *group.Group) {
 	})
 }
 
-func initTracerProvider(traceEndpoint string) *sdktrace.TracerProvider {
+func initTracerProvider(traceEndpoint string) (*sdktrace.TracerProvider, error) {
 	resource, err := newResource("user", "0.1.0")
 
 	if err != nil {
@@ -227,6 +231,7 @@ func initTracerProvider(traceEndpoint string) *sdktrace.TracerProvider {
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(traceEndpoint))
 	if err != nil {
 		logger.Log("OTLP Trace gRPC Creation: %v", err)
+		return nil, err
 	}
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
@@ -234,7 +239,7 @@ func initTracerProvider(traceEndpoint string) *sdktrace.TracerProvider {
 	)
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
-	return tp
+	return tp, nil
 }
 
 func initMeterProvider() *sdkmetric.MeterProvider {
