@@ -25,7 +25,7 @@ const client = new grpc.Client();
 client.load(['../..'], 'pkg/grpc/pb/user.proto');
 
 export default () => {
-  client.connect('localhost:8082', {
+  client.connect(__ENV.USER_SVC_URL + ':8082', {
     plaintext: true
   });
     

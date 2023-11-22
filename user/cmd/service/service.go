@@ -6,13 +6,18 @@ import (
 	"fmt"
 	"net"
 	http1 "net/http"
+
+	_ "net/http/pprof"
+
 	"os"
 	"os/signal"
 	"runtime/debug"
 	"strings"
 	"sync"
 	"syscall"
-	"time"
+
+	// "time"
+
 	endpoint "user/pkg/endpoint"
 	grpc "user/pkg/grpc"
 	pb "user/pkg/grpc/pb"
@@ -29,7 +34,7 @@ import (
 	grpc1 "google.golang.org/grpc"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.opentelemetry.io/contrib/instrumentation/runtime"
+	// "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -115,17 +120,17 @@ func Run() {
 			}
 		}()
 
-		mp := initMeterProvider()
-		defer func() {
-			if err := mp.Shutdown(context.Background()); err != nil {
-				logger.Log("Error shutting down meter provider: %v", err)
-			}
-		}()
+		// mp := initMeterProvider()
+		// defer func() {
+		// 	if err := mp.Shutdown(context.Background()); err != nil {
+		// 		logger.Log("Error shutting down meter provider: %v", err)
+		// 	}
+		// }()
 
-		err = runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second))
-		if err != nil {
-			logger.Log(err)
-		}
+		// err = runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second))
+		// if err != nil {
+		// 	logger.Log(err)
+		// }
 	}
 
 	var ps *postgresStore.PostgresStore
