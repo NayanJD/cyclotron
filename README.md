@@ -1,3 +1,7 @@
 ## Cyclotron: Collection of Go Microservices built using [go-kit](https://github.com/go-kit/kit)
 
-This project serves as a microservice reference built using [go-kit](https://github.com/go-kit/kit) following all standard microservice practises for production use. Also, this project serve to benchmark/load test go microservices.
+What's this project is for:
+
+1. Go microservices reference following all production standard practises
+2. Benchmark/load test go microservices
+
