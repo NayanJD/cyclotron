@@ -2,10 +2,11 @@ package endpoint
 
 import (
 	"context"
-	user "user/pkg/domains/user"
-	service "user/pkg/service"
 
 	endpoint "github.com/go-kit/kit/endpoint"
+
+	user "cyclotron/user/pkg/domains/user"
+	service "cyclotron/user/pkg/service"
 )
 
 type LoginRequest struct {
@@ -37,7 +38,11 @@ type Failure interface {
 	Failed() error
 }
 
-func (e Endpoints) Login(ctx context.Context, username string, password string) (token user.AuthToken, err error) {
+func (e Endpoints) Login(
+	ctx context.Context,
+	username string,
+	password string,
+) (token user.AuthToken, err error) {
 	request := LoginRequest{
 		Password: password,
 		Username: username,
@@ -149,7 +154,10 @@ func (r RefreshAccessTokenResponse) Failed() error {
 }
 
 // RefreshAccessToken implements Service. Primarily useful in a client.
-func (e Endpoints) RefreshAccessToken(ctx context.Context, refreshToken string) (token user.AuthToken, err error) {
+func (e Endpoints) RefreshAccessToken(
+	ctx context.Context,
+	refreshToken string,
+) (token user.AuthToken, err error) {
 	request := RefreshAccessTokenRequest{RefreshToken: refreshToken}
 	response, err := e.RefreshAccessTokenEndpoint(ctx, request)
 	if err != nil {

@@ -9,18 +9,21 @@ import (
 	"os"
 	"strings"
 	"time"
-	"user/pkg/domains/user"
-	customErrors "user/pkg/errors"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	jwt "github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
-	cryptus "user/pkg/cryptus"
+
+	cryptus "cyclotron/user/pkg/cryptus"
+	"cyclotron/user/pkg/domains/user"
+	customErrors "cyclotron/user/pkg/errors"
 )
 
 const (
-	InvalidPasswordErr     = customErrors.ConstError("The username and password provided is invalid")
+	InvalidPasswordErr = customErrors.ConstError(
+		"The username and password provided is invalid",
+	)
 	InternalServerErr      = customErrors.ConstError("Internal Server Error")
 	InvalidRefreshTokenErr = customErrors.ConstError("Invalid Refresh Token")
 )
@@ -50,8 +53,11 @@ type JwtClaims struct {
 	jwt.RegisteredClaims
 }
 
-func (b *basicUserService) Login(ctx context.Context, username string, password string) (token user.AuthToken, err error) {
-
+func (b *basicUserService) Login(
+	ctx context.Context,
+	username string,
+	password string,
+) (token user.AuthToken, err error) {
 	var rUser *user.User
 
 	if rUser, err = b.userRepository.FindByUsername(ctx, username); err != nil {
@@ -91,14 +97,12 @@ func (b *basicUserService) Login(ctx context.Context, username string, password 
 
 	// Sign and get the complete encoded token as a string using the secret
 	accessTokenString, err := cryptus.NewJwtToken(accessTokenClaims, b.jwtSecret, expirationTime)
-
 	if err != nil {
 		level.Error(b.logger).Log("token", "accessToken", "msg", err)
 		return token, InternalServerErr
 	}
 
 	refreshTokenString, err := cryptus.NewJwtToken(refreshTokenClaims, b.jwtSecret, expirationTime)
-
 	if err != nil {
 		level.Error(b.logger).Log("token", "refreshToken", "msg", err)
 		return token, InternalServerErr
@@ -115,12 +119,14 @@ func (b *basicUserService) Login(ctx context.Context, username string, password 
 	}
 
 	return *newToken, err
-
 }
 
 // NewBasicUserService returns a naive, stateless implementation of UserService.
-func NewBasicUserService(userRepository user.UserRepository, tokenRepository user.AuthTokenRepository, logger log.Logger) (UserService, error) {
-
+func NewBasicUserService(
+	userRepository user.UserRepository,
+	tokenRepository user.AuthTokenRepository,
+	logger log.Logger,
+) (UserService, error) {
 	jwtSecret, ok := os.LookupEnv("JWT_SECRET")
 
 	if !ok {
@@ -136,9 +142,13 @@ func NewBasicUserService(userRepository user.UserRepository, tokenRepository use
 }
 
 // New returns a UserService with all of the expected middleware wired in.
-func New(ur user.UserRepository, tr user.AuthTokenRepository, logger log.Logger, middleware []Middleware) (UserService, error) {
+func New(
+	ur user.UserRepository,
+	tr user.AuthTokenRepository,
+	logger log.Logger,
+	middleware []Middleware,
+) (UserService, error) {
 	svc, err := NewBasicUserService(ur, tr, logger)
-
 	if err != nil {
 		return svc, err
 	}
@@ -149,8 +159,10 @@ func New(ur user.UserRepository, tr user.AuthTokenRepository, logger log.Logger,
 	return svc, err
 }
 
-func (b *basicUserService) Register(ctx context.Context, user user.User) (newUser user.User, err error) {
-
+func (b *basicUserService) Register(
+	ctx context.Context,
+	user user.User,
+) (newUser user.User, err error) {
 	var hasValidationErrors bool
 	var validationErrors []string
 
@@ -192,7 +204,6 @@ func (b *basicUserService) Register(ctx context.Context, user user.User) (newUse
 	user.HashedPassword = string(hashedPasswordBytes)
 
 	userPtr, err := b.userRepository.CreateUser(ctx, &user)
-
 	if err != nil {
 		fmt.Printf(err.Error(), "\n")
 		return
@@ -201,11 +212,17 @@ func (b *basicUserService) Register(ctx context.Context, user user.User) (newUse
 	return
 }
 
-func (b *basicUserService) GetUserFromToken(ctx context.Context, token string) (u user.User, err error) {
-	parsedToken, err := jwt.ParseWithClaims(token, &JwtClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(b.jwtSecret), nil
-	})
-
+func (b *basicUserService) GetUserFromToken(
+	ctx context.Context,
+	token string,
+) (u user.User, err error) {
+	parsedToken, err := jwt.ParseWithClaims(
+		token,
+		&JwtClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(b.jwtSecret), nil
+		},
+	)
 	if err != nil {
 		return u, err
 	}
@@ -228,11 +245,17 @@ func (b *basicUserService) GetUserFromToken(ctx context.Context, token string) (
 	return *dUser, err
 }
 
-func (b *basicUserService) RefreshAccessToken(ctx context.Context, refreshToken string) (token user.AuthToken, err error) {
-	parsedToken, err := jwt.ParseWithClaims(refreshToken, &JwtClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(b.jwtSecret), nil
-	})
-
+func (b *basicUserService) RefreshAccessToken(
+	ctx context.Context,
+	refreshToken string,
+) (token user.AuthToken, err error) {
+	parsedToken, err := jwt.ParseWithClaims(
+		refreshToken,
+		&JwtClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(b.jwtSecret), nil
+		},
+	)
 	if err != nil {
 		return token, err
 	}
@@ -277,14 +300,12 @@ func (b *basicUserService) RefreshAccessToken(ctx context.Context, refreshToken 
 
 	// Sign and get the complete encoded token as a string using the secret
 	accessTokenString, err := accessToken.SignedString([]byte(b.jwtSecret))
-
 	if err != nil {
 		level.Error(b.logger).Log("token", "accessToken", "msg", err)
 		return token, InternalServerErr
 	}
 
 	refreshTokenString, err := newRefreshToken.SignedString([]byte(b.jwtSecret))
-
 	if err != nil {
 		level.Error(b.logger).Log("token", "refreshToken", "msg", err)
 		return token, InternalServerErr

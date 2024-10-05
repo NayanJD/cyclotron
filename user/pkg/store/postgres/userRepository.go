@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
+
 	"github.com/go-kit/kit/log/level"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"time"
-	userDomain "user/pkg/domains/user"
+
+	userDomain "cyclotron/user/pkg/domains/user"
 )
 
 type PostgresUser struct {
@@ -54,9 +56,11 @@ func getPostgresUser(u *userDomain.User) *PostgresUser {
 	}
 }
 
-func (ps *PostgresStore) CreateUser(ctx context.Context, user *userDomain.User) (*userDomain.User, error) {
+func (ps *PostgresStore) CreateUser(
+	ctx context.Context,
+	user *userDomain.User,
+) (*userDomain.User, error) {
 	tx, err := ps.db.BeginTxx(ctx, nil)
-
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +89,6 @@ func (ps *PostgresStore) CreateUser(ctx context.Context, user *userDomain.User) 
 	level.Debug(ps.logger).Log("query", userInsertQuery)
 
 	insertedRows, err := tx.NamedQuery(userInsertQuery, &pu)
-
 	if err != nil {
 		return nil, err
 	}
@@ -100,16 +103,17 @@ func (ps *PostgresStore) CreateUser(ctx context.Context, user *userDomain.User) 
 	}
 
 	return getDomainUser(pu), nil
-
 }
 
 // func (ps *PostgresStore) FindByID(ctx *context.Context, user *user.User) (*user.User, error) {
 
 // }
 
-func (ps *PostgresStore) FindByUsername(ctx context.Context, username string) (*userDomain.User, error) {
+func (ps *PostgresStore) FindByUsername(
+	ctx context.Context,
+	username string,
+) (*userDomain.User, error) {
 	tx, err := ps.db.BeginTxx(ctx, nil)
-
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +132,11 @@ func (ps *PostgresStore) FindByUsername(ctx context.Context, username string) (*
 	return user, err
 }
 
-func (ps *PostgresStore) FindByUsernameTx(ctx context.Context, tx *sqlx.Tx, username string) (*userDomain.User, error) {
+func (ps *PostgresStore) FindByUsernameTx(
+	ctx context.Context,
+	tx *sqlx.Tx,
+	username string,
+) (*userDomain.User, error) {
 	pu := PostgresUser{}
 
 	getUserQuery := "SELECT id, first_name, last_name, username, hashed_password, dob, created_at, updated_at, deleted_at FROM users where username = $1"
@@ -138,7 +146,6 @@ func (ps *PostgresStore) FindByUsernameTx(ctx context.Context, tx *sqlx.Tx, user
 			return nil, userDomain.UserDoesNotExistsErr
 		} else {
 			return nil, err
-
 		}
 	}
 
@@ -147,7 +154,6 @@ func (ps *PostgresStore) FindByUsernameTx(ctx context.Context, tx *sqlx.Tx, user
 
 func (ps *PostgresStore) FindByID(ctx context.Context, id string) (*userDomain.User, error) {
 	tx, err := ps.db.BeginTxx(ctx, nil)
-
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +161,11 @@ func (ps *PostgresStore) FindByID(ctx context.Context, id string) (*userDomain.U
 	return ps.FindByIDTx(ctx, tx, id)
 }
 
-func (ps *PostgresStore) FindByIDTx(ctx context.Context, tx *sqlx.Tx, id string) (*userDomain.User, error) {
+func (ps *PostgresStore) FindByIDTx(
+	ctx context.Context,
+	tx *sqlx.Tx,
+	id string,
+) (*userDomain.User, error) {
 	pu := PostgresUser{}
 
 	getUserQuery := "SELECT id, first_name, last_name, username, hashed_password, dob, created_at, updated_at, deleted_at FROM users where id = $1 and deleted_at is null"
@@ -165,7 +175,6 @@ func (ps *PostgresStore) FindByIDTx(ctx context.Context, tx *sqlx.Tx, id string)
 			return nil, userDomain.UserDoesNotExistsErr
 		} else {
 			return nil, err
-
 		}
 	}
 

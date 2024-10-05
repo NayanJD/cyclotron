@@ -7,7 +7,8 @@ import (
 	grpc "github.com/go-kit/kit/transport/grpc"
 	group "github.com/oklog/oklog/pkg/group"
 	opentracinggo "github.com/opentracing/opentracing-go"
-	endpoint "user/pkg/endpoint"
+
+	endpoint "cyclotron/user/pkg/endpoint"
 )
 
 func createService(endpoints endpoint.Endpoints) (g *group.Group) {
@@ -15,6 +16,7 @@ func createService(endpoints endpoint.Endpoints) (g *group.Group) {
 	initGRPCHandler(endpoints, g)
 	return g
 }
+
 func defaultGRPCOptions(logger log.Logger, tracer opentracinggo.Tracer) map[string][]grpc.ServerOption {
 	options := map[string][]grpc.ServerOption{
 		"GetUserFromToken":   {grpc.ServerErrorLogger(logger)},
@@ -24,6 +26,7 @@ func defaultGRPCOptions(logger log.Logger, tracer opentracinggo.Tracer) map[stri
 	}
 	return options
 }
+
 func addEndpointMiddlewareToAllMethods(mw map[string][]endpoint1.Middleware, m endpoint1.Middleware) {
 	methods := []string{"Login", "Register", "GetUserFromToken", "RefreshAccessToken"}
 	for _, v := range methods {

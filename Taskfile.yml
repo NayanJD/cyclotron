@@ -2,7 +2,6 @@ version: '3'
 
 tasks:
   build-usersvc:
-    dir: user
     cmds:
-      - go build -o ../dist/userSvc -buildvcs=true ./cmd/main.go
+      - go build -o ./dist/userSvc -buildvcs=true ./user/cmd/main.go
     silent: true

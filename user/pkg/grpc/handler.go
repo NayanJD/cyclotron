@@ -2,21 +2,29 @@ package grpc
 
 import (
 	"context"
-	userDomain "user/pkg/domains/user"
-	endpoint "user/pkg/endpoint"
-	pb "user/pkg/grpc/pb"
 
 	grpc "github.com/go-kit/kit/transport/grpc"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+
+	userDomain "cyclotron/user/pkg/domains/user"
+	endpoint "cyclotron/user/pkg/endpoint"
+	pb "cyclotron/user/pkg/grpc/pb"
 )
 
 func makeLoginHandler(endpoints endpoint.Endpoints, options []grpc.ServerOption) grpc.Handler {
-	return grpc.NewServer(endpoints.LoginEndpoint, decodeLoginRequest, encodeLoginResponse, options...)
+	return grpc.NewServer(
+		endpoints.LoginEndpoint,
+		decodeLoginRequest,
+		encodeLoginResponse,
+		options...)
 }
 
 func decodeLoginRequest(_ context.Context, r interface{}) (interface{}, error) {
 	req := r.(*pb.LoginRequest)
-	return endpoint.LoginRequest{Username: string(req.Username), Password: string(req.Password)}, nil
+	return endpoint.LoginRequest{
+		Username: string(req.Username),
+		Password: string(req.Password),
+	}, nil
 }
 
 func encodeLoginResponse(_ context.Context, r interface{}) (interface{}, error) {
@@ -32,6 +40,7 @@ func encodeLoginResponse(_ context.Context, r interface{}) (interface{}, error) 
 		ValidTill:    timestamppb.New(resp.Token.ValidTill),
 	}, nil
 }
+
 func (g *grpcServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginReply, error) {
 	_, rep, err := g.login.ServeGRPC(ctx, req)
 	if err != nil {
@@ -48,11 +57,14 @@ func err2str(err error) string {
 }
 
 func makeRegisterHandler(endpoints endpoint.Endpoints, options []grpc.ServerOption) grpc.Handler {
-	return grpc.NewServer(endpoints.RegisterEndpoint, decodeRegisterRequest, encodeRegisterResponse, options...)
+	return grpc.NewServer(
+		endpoints.RegisterEndpoint,
+		decodeRegisterRequest,
+		encodeRegisterResponse,
+		options...)
 }
 
 func decodeRegisterRequest(_ context.Context, r interface{}) (interface{}, error) {
-
 	req := r.(*pb.RegisterRequest)
 
 	return endpoint.RegisterRequest{
@@ -89,7 +101,10 @@ func encodeRegisterResponse(_ context.Context, r interface{}) (interface{}, erro
 	}, nil
 }
 
-func (g *grpcServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterReply, error) {
+func (g *grpcServer) Register(
+	ctx context.Context,
+	req *pb.RegisterRequest,
+) (*pb.RegisterReply, error) {
 	_, rep, err := g.register.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, err
@@ -97,8 +112,15 @@ func (g *grpcServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb
 	return rep.(*pb.RegisterReply), nil
 }
 
-func makeGetUserFromTokenHandler(endpoints endpoint.Endpoints, options []grpc.ServerOption) grpc.Handler {
-	return grpc.NewServer(endpoints.GetUserFromTokenEndpoint, decodeGetUserFromTokenRequest, encodeGetUserFromTokenResponse, options...)
+func makeGetUserFromTokenHandler(
+	endpoints endpoint.Endpoints,
+	options []grpc.ServerOption,
+) grpc.Handler {
+	return grpc.NewServer(
+		endpoints.GetUserFromTokenEndpoint,
+		decodeGetUserFromTokenRequest,
+		encodeGetUserFromTokenResponse,
+		options...)
 }
 
 func decodeGetUserFromTokenRequest(_ context.Context, r interface{}) (interface{}, error) {
@@ -129,7 +151,11 @@ func encodeGetUserFromTokenResponse(_ context.Context, r interface{}) (interface
 		DeletedAt: deletedAt,
 	}, nil
 }
-func (g *grpcServer) GetUserFromToken(ctx context.Context, req *pb.GetUserFromTokenRequest) (*pb.GetUserFromTokenReply, error) {
+
+func (g *grpcServer) GetUserFromToken(
+	ctx context.Context,
+	req *pb.GetUserFromTokenRequest,
+) (*pb.GetUserFromTokenReply, error) {
 	_, rep, err := g.getUserFromToken.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, err
@@ -137,8 +163,15 @@ func (g *grpcServer) GetUserFromToken(ctx context.Context, req *pb.GetUserFromTo
 	return rep.(*pb.GetUserFromTokenReply), nil
 }
 
-func makeRefreshAccessTokenHandler(endpoints endpoint.Endpoints, options []grpc.ServerOption) grpc.Handler {
-	return grpc.NewServer(endpoints.RefreshAccessTokenEndpoint, decodeRefreshAccessTokenRequest, encodeRefreshAccessTokenResponse, options...)
+func makeRefreshAccessTokenHandler(
+	endpoints endpoint.Endpoints,
+	options []grpc.ServerOption,
+) grpc.Handler {
+	return grpc.NewServer(
+		endpoints.RefreshAccessTokenEndpoint,
+		decodeRefreshAccessTokenRequest,
+		encodeRefreshAccessTokenResponse,
+		options...)
 }
 
 func decodeRefreshAccessTokenRequest(_ context.Context, r interface{}) (interface{}, error) {
@@ -159,7 +192,11 @@ func encodeRefreshAccessTokenResponse(_ context.Context, r interface{}) (interfa
 		ValidTill:    timestamppb.New(resp.Token.ValidTill),
 	}, nil
 }
-func (g *grpcServer) RefreshAccessToken(ctx context.Context, req *pb.RefreshAccessTokenRequest) (*pb.RefreshAccessTokenReply, error) {
+
+func (g *grpcServer) RefreshAccessToken(
+	ctx context.Context,
+	req *pb.RefreshAccessTokenRequest,
+) (*pb.RefreshAccessTokenReply, error) {
 	_, rep, err := g.refreshAccessToken.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, err

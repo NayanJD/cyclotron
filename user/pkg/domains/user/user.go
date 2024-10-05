@@ -2,9 +2,11 @@ package user
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"time"
-	customErrors "user/pkg/errors"
+
+	"github.com/google/uuid"
+
+	customErrors "cyclotron/user/pkg/errors"
 )
 
 type (

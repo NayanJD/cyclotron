@@ -1,6 +1,6 @@
 package main
 
-import service "user/cmd/service"
+import service "cyclotron/user/cmd/service"
 
 func main() {
 	service.Run()

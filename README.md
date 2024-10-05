@@ -5,3 +5,6 @@ What's this project is for:
 1. Go microservices reference following all production standard practises
 2. Benchmark/load test go microservices
 
+### Code Generation
+
+This project uses [kit CLI](https://github.com/GrantZheng/kit) to generate services.

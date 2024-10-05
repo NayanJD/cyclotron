@@ -2,13 +2,13 @@ package postgres
 
 import (
 	"context"
-	// "database/sql"
-	// "errors"
 	"fmt"
+	"time"
+
 	"github.com/go-kit/kit/log/level"
 	"github.com/jmoiron/sqlx"
-	"time"
-	userDomain "user/pkg/domains/user"
+
+	userDomain "cyclotron/user/pkg/domains/user"
 )
 
 type PostgresAuthToken struct {
@@ -45,9 +45,12 @@ func getPostgresAuthToken(at *userDomain.AuthToken) *PostgresAuthToken {
 	}
 }
 
-func (ps *PostgresStore) CreateToken(ctx context.Context, token *userDomain.AuthToken, validityDurationInSeconds int64) (*userDomain.AuthToken, error) {
+func (ps *PostgresStore) CreateToken(
+	ctx context.Context,
+	token *userDomain.AuthToken,
+	validityDurationInSeconds int64,
+) (*userDomain.AuthToken, error) {
 	tx, err := ps.db.BeginTxx(ctx, nil)
-
 	if err != nil {
 		return nil, err
 	}
@@ -66,8 +69,12 @@ func (ps *PostgresStore) CreateToken(ctx context.Context, token *userDomain.Auth
 	return newAuthToken, nil
 }
 
-func (ps *PostgresStore) CreateAuthTokenTx(ctx context.Context, tx *sqlx.Tx, token *userDomain.AuthToken, validityDurationInSeconds int64) (*userDomain.AuthToken, error) {
-
+func (ps *PostgresStore) CreateAuthTokenTx(
+	ctx context.Context,
+	tx *sqlx.Tx,
+	token *userDomain.AuthToken,
+	validityDurationInSeconds int64,
+) (*userDomain.AuthToken, error) {
 	pat := getPostgresAuthToken(token)
 
 	tokenInsertQuery := fmt.Sprintf(`INSERT INTO tokens(
@@ -78,7 +85,6 @@ func (ps *PostgresStore) CreateAuthTokenTx(ctx context.Context, tx *sqlx.Tx, tok
 	level.Debug(ps.logger).Log("query", tokenInsertQuery)
 
 	insertedRows, err := tx.NamedQuery(tokenInsertQuery, &pat)
-
 	if err != nil {
 		return nil, err
 	}
@@ -88,5 +94,4 @@ func (ps *PostgresStore) CreateAuthTokenTx(ctx context.Context, tx *sqlx.Tx, tok
 	}
 
 	return getDomainAuthToken(pat), nil
-
 }
