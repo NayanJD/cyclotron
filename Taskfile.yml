@@ -3,5 +3,13 @@ version: '3'
 tasks:
   build-usersvc:
     cmds:
-      - go build -o ./dist/userSvc -buildvcs=true ./user/cmd/main.go
-    silent: true
+      - GOOS="$GOOS" GOARCH=$GOARCH go build -o ./dist/userSvc-$GOOS-$GOARCH -buildvcs=true ./user/cmd/main.go
+
+  build-usersvc-docker-local:
+    cmds:
+      - task: build-usersvc
+      - docker buildx build --platform $GOOS/$GOARCH --build-arg GOOSARCH=$GOOS-$GOARCH -f ./user/Dockerfile -t user-svc:latest .
+
+  build-k6:
+    cmds:
+      - GOOS="$GOOS" GOARCH=$GOARCH xk6 build --with github.com/grafana/xk6-faker@latest --output k6_$GOOS_$GOARCH

@@ -45,6 +45,8 @@ services:
   # Jaeger
   jaeger:
     image: jaegertracing/all-in-one:1.48.0
+    env_file:
+      - ./.env
     container_name: jaeger
     command:
       - "--memory.max-traces"
@@ -59,7 +61,7 @@ services:
           memory: 300M
     restart: unless-stopped
     ports:
-      - "${JAEGER_SERVICE_PORT}:${JAEGER_SERVICE_PORT}"         # Jaeger UI
+      - 16686:16686         # Jaeger UI
       # - "4317:4317"                           # OTLP gRPC default port
     environment:
       - COLLECTOR_OTLP_ENABLED=true
@@ -69,6 +71,8 @@ services:
   # Grafana
   grafana:
     image: grafana/grafana:10.1.0
+    env_file:
+      - ./.env
     container_name: grafana
     deploy:
       resources:
@@ -78,12 +82,14 @@ services:
       - ./grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./grafana/provisioning/:/etc/grafana/provisioning/
     ports:
-      - "${GRAFANA_SERVICE_PORT}:${GRAFANA_SERVICE_PORT}"
+      - 3000:3000
     logging: *logging
 
   # OpenTelemetry Collector
   otelcol:
     image: otel/opentelemetry-collector-contrib:0.84.0
+    env_file:
+      - ./.env
     container_name: otel-col
     deploy:
       resources:
@@ -107,6 +113,8 @@ services:
   # Prometheus
   prometheus:
     image: quay.io/prometheus/prometheus:v2.46.0
+    env_file:
+      - ./.env
     container_name: prometheus
     command:
       - --web.console.templates=/etc/prometheus/consoles
@@ -125,6 +133,6 @@ services:
           memory: 3G
           cpus: '3'
     ports:
-      - "${PROMETHEUS_SERVICE_PORT}:${PROMETHEUS_SERVICE_PORT}"
+      - 9090:9090
     logging: *logging
 
